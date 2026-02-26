@@ -3,22 +3,39 @@ from ultralytics import YOLO
 from PIL import Image
 import io
 import time
+import os
+
+# 🔽 NEW: Import auto downloader
+from download_model import download_model
 
 # Import the notification functions and config variables
 from notifications import send_sms_alert, send_email_alert, upload_image_to_cloudinary
 import config
 
-# --- AI Model Setup ---
-# Load your custom-trained YOLOv8 model
+
+# =====================================================
+# 🔥 AI MODEL AUTO DOWNLOAD + LOAD (IMPORTANT SECTION)
+# =====================================================
+
+MODEL_PATH = "model/best.pt"
+
+# Step 1: Download model automatically if missing
+if not os.path.exists(MODEL_PATH):
+    print("Custom model not found. Downloading from Google Drive...")
+    download_model()
+
+# Step 2: Load the model safely
 try:
-    MODEL_PATH = 'model/best.pt'
     model = YOLO(MODEL_PATH)
-    print(f"Custom YOLOv8 Model '{MODEL_PATH}' loaded successfully!")
+    print("✅ Custom Fire Detection Model Loaded Successfully!")
 except Exception as e:
-    print(f"CRITICAL ERROR: Could not load the YOLOv8 model.")
-    print(f"Details: {e}")
+    print("❌ CRITICAL ERROR: Could not load the YOLOv8 model.")
+    print("Details:", e)
     model = None
-# --- End of AI Model Setup ---
+
+# =====================================================
+# End of AI Model Setup
+# =====================================================
 
 
 # --- Alert Cooldown Logic ---
