@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Fire Detection</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-image: url('https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1950');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+            text-align: center;
+            width: 90%;
+            max-width: 680px;
+        }
+        h1 {
+            color: #d9534f;
+            margin-top: 0;
+        }
+        #video-container {
+            margin-top: 20px;
+            border: 4px solid #5cb85c; /* Default green */
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            transition: border-color 0.5s ease;
+        }
+        video {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+        #status {
+            margin-top: 25px;
+            font-size: 1.5em;
+            font-weight: bold;
+            padding: 10px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        .no-fire { color: #5cb85c; background-color: #e8f5e9; }
+        .fire-detected { color: #d9534f; background-color: #fdecea; }
+        /* --- NEW: Style for the cooldown status --- */
+        .cooldown { color: #f0ad4e; background-color: #fcf8e3; }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Live Fire Detection System</h1>
+        <p>Your webcam feed is being monitored in real-time.</p>
+
+        <div id="video-container">
+            <video id="webcam" autoplay playsinline></video>
+        </div>
+
+        <div id="status" class="no-fire">Initializing...</div>
+    </div>
+
+    <script>
+        const video = document.getElementById('webcam');
+        const statusDiv = document.getElementById('status');
+        const videoContainer = document.getElementById('video-container');
+        const constraints = { video: true };
+        let intervalId;
+        let currentLocation = null;
+
+        function getLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition((position) => {
+                    currentLocation = {
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude
+                    };
+                });
+            }
+        }
+
+        async function startWebcam() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = stream;
+                video.oncanplay = () => {
+                   intervalId = setInterval(captureAndPredict, 500); // Increased interval slightly
+                };
+            } catch (err) {
+                statusDiv.textContent = "Error: Could not access webcam.";
+                statusDiv.className = 'fire-detected';
+            }
+        }
+
+        async function captureAndPredict() {
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            canvas.toBlob(async (blob) => {
+                const formData = new FormData();
+                formData.append('file', blob, 'webcam_frame.jpg');
+
+                if (currentLocation) {
+                    formData.append('latitude', currentLocation.latitude);
+                    formData.append('longitude', currentLocation.longitude);
+                }
+
+                try {
+                    const response = await fetch('/predict', { method: 'POST', body: formData });
+                    const data = await response.json();
+                    updateStatus(data); // --- NEW: Pass the full data object ---
+                } catch (error) {
+                    console.error('Error during prediction:', error);
+                }
+            }, 'image/jpeg');
+        }
+
+        // --- NEW: This function is now smarter ---
+        function updateStatus(data) {
+            const status = data.status;
+
+            if (status === 'alert_sent') {
+                statusDiv.textContent = 'Fire Detected! (Alerts Sent)';
+                statusDiv.className = 'fire-detected';
+                videoContainer.style.borderColor = '#d9534f'; // Red
+            } else if (status === 'cooldown') {
+                statusDiv.textContent = 'Fire Detected (Cooldown Active)';
+                statusDiv.className = 'cooldown';
+                videoContainer.style.borderColor = '#f0ad4e'; // Orange
+            } else {
+                statusDiv.textContent = 'No Fire Detected';
+                statusDiv.className = 'no-fire';
+                videoContainer.style.borderColor = '#5cb85c'; // Green
+            }
+        }
+
+        // Start the process
+        getLocation();
+        startWebcam();
+    </script>
+</body>
+</html>
+
