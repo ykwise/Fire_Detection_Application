@@ -39,7 +39,7 @@ except Exception as e:
 
 
 # --- Alert Cooldown Logic ---
-ALERT_COOLDOWN_SECONDS = 60  # Cooldown set to 1 minute
+ALERT_COOLDOWN_SECONDS = 10  # Cooldown set to 10 sec
 last_alert_time = 0
 # --------------------------
 
